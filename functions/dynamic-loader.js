@@ -12,8 +12,8 @@ class DynamicLoader {
     // Set up scroll listener for globe functionality
     this.setupGlobeScrollListener();
     
-    // Set up click listener for mapbox functionality
-    this.setupMapboxClickListener();
+    // Set up scroll listener for mapbox functionality (when user reaches #globe-section)
+    this.setupMapboxScrollListener();
   }
 
   setupGlobeScrollListener() {
@@ -42,14 +42,38 @@ class DynamicLoader {
     }
   }
 
-  setupMapboxClickListener() {
-    // Use event delegation to handle clicks on #globe-section
-    document.addEventListener('click', (event) => {
-      const globeSection = event.target.closest('#globe-section');
-      if (globeSection && !this.loadedFiles.has('mapbox')) {
+  setupMapboxScrollListener() {
+    let hasTriggered = false;
+    
+    const handleScroll = () => {
+      if (hasTriggered) return;
+      
+      const globeSection = document.getElementById('globe-section');
+      if (!globeSection) return;
+      
+      const rect = globeSection.getBoundingClientRect();
+      // Load when the globe section comes into view (top of section reaches bottom of viewport)
+      if (rect.top <= window.innerHeight) {
+        hasTriggered = true;
+        this.loadMapboxFunctionality();
+        
+        // Remove scroll listener after triggering
+        window.removeEventListener('scroll', handleScroll, { passive: true });
+      }
+    };
+
+    // Add scroll listener
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Check if already scrolled to globe section (e.g., page refresh)
+    const globeSection = document.getElementById('globe-section');
+    if (globeSection) {
+      const rect = globeSection.getBoundingClientRect();
+      if (rect.top <= window.innerHeight) {
+        hasTriggered = true;
         this.loadMapboxFunctionality();
       }
-    });
+    }
   }
 
   async loadGlobeFunctionality() {
