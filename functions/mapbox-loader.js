@@ -166,7 +166,9 @@ function createMarkerElement(poi) {
   markerEl.style.cssText = "width:30px; height:30px; cursor:pointer;";
   markerEl.innerHTML = `<img src="https://cdn.prod.website-files.com/6809e14c25e5cac9d89f62fe/6841b976ba7131f192625c04_Group%2075.svg" style="width:100%; height:auto; cursor:pointer;" title="${poi.name}">`;
 
-  markerEl.addEventListener("click", () => {
+  markerEl.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     zoomToCoordinates(poi.lng, poi.lat, MAPBOX_CONFIG.locationZoom);
     showModal(poi);
   });
@@ -187,9 +189,15 @@ async function addPoiMarkers(poiData) {
   clearMarkers();
   currentMarkers = poiData.map((poi) => {
     const markerEl = createMarkerElement(poi);
-    return new mapboxgl.Marker(markerEl)
+    const marker = new mapboxgl.Marker(markerEl)
       .setLngLat([poi.lng, poi.lat])
       .addTo(map);
+    
+    // Ensure marker element has a unique identifier
+    markerEl.setAttribute('data-poi-marker', 'true');
+    markerEl.setAttribute('data-poi-id', poi.name || `${poi.lng}-${poi.lat}`);
+    
+    return marker;
   });
 }
 
@@ -226,6 +234,7 @@ function getAllDealersForCountry(countryName) {
 }
 
 function showModal(poi) {
+  // Hide all modals first
   document.querySelectorAll(".globe_item_modal").forEach((modal) => {
     modal.style.display = "none";
     modal.classList.remove("is-open-modal");
@@ -249,9 +258,35 @@ function showModal(poi) {
     const modal = listItem?.querySelector(".globe_item_modal");
 
     if (modal) {
+      // Show modal immediately
       modal.style.display = "flex";
       modal.classList.add("is-open-modal");
-      modal.querySelector("#back-to-dealers")?.focus({ preventScroll: true });
+      
+      // Focus the back button and set up focus trap
+      const backButton = modal.querySelector("#back-to-dealers");
+      if (backButton) {
+        backButton.focus({ preventScroll: true });
+        // Set up focus trap immediately
+        if (window.setupNavigationAccessibility) {
+          const focusableElements = modal.querySelectorAll('button, a, input, textarea, select, [tabindex]:not([tabindex="-1"])');
+          if (focusableElements.length > 0) {
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+            
+            modal.addEventListener("keydown", (e) => {
+              if (e.key === "Tab") {
+                if (e.shiftKey && document.activeElement === firstElement) {
+                  e.preventDefault();
+                  lastElement.focus();
+                } else if (!e.shiftKey && document.activeElement === lastElement) {
+                  e.preventDefault();
+                  firstElement.focus();
+                }
+              }
+            });
+          }
+        }
+      }
     }
   }
 }
@@ -307,6 +342,9 @@ async function handleContinentChange(event) {
 }
 
 function handleDealerClick(event) {
+  // Don't handle if clicking on a map marker or its children
+  if (event.target.closest(".custom-marker") || event.target.closest("[data-poi-marker]")) return;
+  
   const dealerButton = event.target.closest(".globe_item_button.is-loc");
   if (!dealerButton) return;
 
@@ -478,17 +516,19 @@ function setupNavigationAccessibility() {
     },
 
     dealerClick: (e) => {
+      // Don't handle if clicking on a map marker
+      if (e.target.closest(".custom-marker") || e.target.closest("[data-poi-marker]")) return;
+      
       const dealerButton = e.target.closest(selectors.dealerButtons);
       if (!dealerButton) return;
 
-      setTimeout(() => {
-        const modal = dealerButton
-          .closest(".globe_filter_item")
-          .querySelector(selectors.modal);
-        if (modal && modal.style.display !== "none") {
-          handlers.setupModalFocusTrap(modal);
-        }
-      }, 100);
+      // Set up modal focus trap immediately without delay
+      const modal = dealerButton
+        .closest(".globe_filter_item")
+        .querySelector(selectors.modal);
+      if (modal && modal.style.display !== "none") {
+        handlers.setupModalFocusTrap(modal);
+      }
     },
 
     setupModalFocusTrap: (modal) => {
