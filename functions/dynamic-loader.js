@@ -60,7 +60,7 @@ class DynamicLoader {
       return;
     }
 
-    const loadPromise = this.loadScript('functions/globe-loader.js')
+    const loadPromise = this.loadScript('https://main--galeon.netlify.app/functions/globe-loader.js')
       .then(() => {
         this.loadedFiles.add('globe');
         console.log('Globe functionality loaded dynamically');
@@ -81,7 +81,7 @@ class DynamicLoader {
       return;
     }
 
-    const loadPromise = this.loadScript('functions/mapbox-loader.js')
+    const loadPromise = this.loadScript('https://main--galeon.netlify.app/functions/mapbox-loader.js')
       .then(() => {
         this.loadedFiles.add('mapbox');
         console.log('Mapbox functionality loaded dynamically');
