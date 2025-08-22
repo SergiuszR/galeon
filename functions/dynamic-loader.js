@@ -109,6 +109,12 @@ class DynamicLoader {
       .then(() => {
         this.loadedFiles.add('mapbox');
         console.log('Mapbox functionality loaded dynamically');
+        
+        // Wait for the mapbox functionality to be fully ready
+        return this.waitForMapboxReady();
+      })
+      .then(() => {
+        console.log('Mapbox functionality is fully ready for interaction');
       })
       .catch(error => {
         console.error('Failed to load mapbox functionality:', error);
@@ -116,6 +122,19 @@ class DynamicLoader {
 
     this.loadingPromises.set('mapbox', loadPromise);
     await loadPromise;
+  }
+
+  waitForMapboxReady() {
+    return new Promise((resolve) => {
+      const checkReady = () => {
+        if (window.mapboxReady) {
+          resolve();
+        } else {
+          setTimeout(checkReady, 50);
+        }
+      };
+      checkReady();
+    });
   }
 
   loadScript(src) {

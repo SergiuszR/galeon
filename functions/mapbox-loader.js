@@ -712,3 +712,7 @@ window.setupToggleNavigation = setupToggleNavigation;
 setupMapboxLazyLoad();
 setupNavigationAccessibility();
 setupToggleNavigation();
+
+// Signal that initialization is complete
+window.mapboxReady = true;
+console.log('Mapbox functionality fully initialized and ready');
