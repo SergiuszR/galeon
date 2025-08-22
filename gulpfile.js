@@ -24,10 +24,12 @@ function minifyJS() {
       compress: {
         drop_console: true,
         drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug']
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+        passes: 1
       },
       mangle: {
-        toplevel: true
+        toplevel: false,
+        reserved: ['window', 'document', 'console', 'Error', 'Promise', 'Set', 'Map']
       },
       output: {
         beautify: false,
