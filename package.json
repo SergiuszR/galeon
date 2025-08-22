@@ -1,0 +1,20 @@
+{
+  "name": "galeon-gulp",
+  "version": "1.0.0",
+  "description": "Gulp build system for Galeon HTML files",
+  "main": "gulpfile.js",
+  "scripts": {
+    "build": "gulp build",
+    "watch": "gulp watch",
+    "clean": "gulp clean"
+  },
+  "devDependencies": {
+    "gulp": "^4.0.2",
+    "gulp-htmlmin": "^5.0.1",
+    "gulp-rename": "^2.0.0",
+    "gulp-clean": "^0.4.0",
+    "del": "^6.1.1",
+    "through2": "^4.0.2",
+    "html-minifier": "^4.0.0"
+  }
+}
