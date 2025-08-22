@@ -239,9 +239,5 @@ function setupLazyGlobe() {
 // Export the function for use in other files
 window.setupLazyGlobe = setupLazyGlobe;
 
-// Initialize the lazy globe when DOM is ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", setupLazyGlobe);
-} else {
-  setupLazyGlobe();
-}
+// Initialize the lazy globe when this script is loaded
+setupLazyGlobe();

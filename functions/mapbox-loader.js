@@ -708,15 +708,7 @@ window.setupMapboxLazyLoad = setupMapboxLazyLoad;
 window.setupNavigationAccessibility = setupNavigationAccessibility;
 window.setupToggleNavigation = setupToggleNavigation;
 
-// Initialize when DOM is ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    setupMapboxLazyLoad();
-    setupNavigationAccessibility();
-    setupToggleNavigation();
-  });
-} else {
-  setupMapboxLazyLoad();
-  setupNavigationAccessibility();
-  setupToggleNavigation();
-}
+// Initialize when this script is loaded
+setupMapboxLazyLoad();
+setupNavigationAccessibility();
+setupToggleNavigation();
