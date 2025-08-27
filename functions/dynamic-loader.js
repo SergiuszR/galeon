@@ -36,7 +36,7 @@ class DynamicLoader {
     window.addEventListener('scroll', handleScroll, { passive: true });
     
     // Check if already scrolled past threshold (e.g., page refresh)
-    if (window.scrollY >= 300) {
+    if (window.scrollY >= 100) {
       hasTriggered = true;
       this.loadGlobeFunctionality();
     }
