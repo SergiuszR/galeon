@@ -23,7 +23,7 @@ class DynamicLoader {
       if (hasTriggered) return;
       
       const scrollY = window.scrollY || window.pageYOffset;
-      if (scrollY >= 300) {
+      if (scrollY >= 100) {
         hasTriggered = true;
         this.loadGlobeFunctionality();
         
