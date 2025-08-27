@@ -11,13 +11,17 @@ class DynamicLoader {
   }
 
   init() {
+    console.log('DynamicLoader: init() called, checking path:', window.location.pathname);
+    
     // Check if current page should load functionality instantly
     if (this.shouldLoadInstantly()) {
+      console.log('DynamicLoader: Loading functionality instantly for path:', window.location.pathname);
       this.loadGlobeFunctionality();
       this.loadMapboxFunctionality();
       return;
     }
     
+    console.log('DynamicLoader: Setting up scroll-based loading for path:', window.location.pathname);
     // Set up scroll listener for globe functionality
     this.setupGlobeScrollListener();
     
@@ -27,7 +31,9 @@ class DynamicLoader {
 
   shouldLoadInstantly() {
     const currentPath = window.location.pathname;
-    return this.instantLoadPages.includes(currentPath);
+    const shouldLoad = this.instantLoadPages.includes(currentPath);
+    console.log('DynamicLoader: Current path:', currentPath, 'Should load instantly:', shouldLoad);
+    return shouldLoad;
   }
 
   setupGlobeScrollListener() {
@@ -165,8 +171,16 @@ class DynamicLoader {
 // Initialize the dynamic loader when DOM is ready
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
-    window.dynamicLoader = new DynamicLoader();
+    console.log('DynamicLoader: DOM loaded, initializing...');
+    // Small delay to ensure page is fully ready
+    setTimeout(() => {
+      window.dynamicLoader = new DynamicLoader();
+    }, 100);
   });
 } else {
-  window.dynamicLoader = new DynamicLoader();
+  console.log('DynamicLoader: DOM already ready, initializing...');
+  // Small delay to ensure page is fully ready
+  setTimeout(() => {
+    window.dynamicLoader = new DynamicLoader();
+  }, 100);
 }
