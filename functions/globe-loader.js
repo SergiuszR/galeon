@@ -4,6 +4,11 @@
 window.Webflow ||= [];
 
 function setupLazyGlobe() {
+  // Check if we should load instantly based on current path
+  const instantLoadPages = ['/dealers'];
+  const currentPath = window.location.pathname;
+  const shouldLoadInstantly = instantLoadPages.includes(currentPath);
+  
   // Get the globe element
   const globeElement = document.getElementById("globeViz");
   if (!globeElement) {
@@ -71,6 +76,30 @@ function setupLazyGlobe() {
       console.error("Error applying globe effects:", err);
     }
   };
+
+  // Lazy load
+  const loadGlobeScript = () => {
+    const script = document.createElement("script");
+    script.src = "//unpkg.com/globe.gl";
+    script.onload = () => {
+      initializeGlobe();
+    };
+    document.head.appendChild(script);
+  };
+
+  // Check if we should load instantly after functions are defined
+  if (shouldLoadInstantly) {
+    console.log('Globe: Loading instantly for path:', currentPath);
+    // Load immediately without scroll listeners
+    setTimeout(() => {
+      if (typeof Globe === "undefined") {
+        loadGlobeScript();
+      } else {
+        initializeGlobe();
+      }
+    }, 100);
+    return;
+  }
 
   // Simplified initialization
   const initializeGlobe = () => {
@@ -149,16 +178,6 @@ function setupLazyGlobe() {
     });
 
     window.world = world;
-  };
-
-  // Lazy load
-  const loadGlobeScript = () => {
-    const script = document.createElement("script");
-    script.src = "//unpkg.com/globe.gl";
-    script.onload = () => {
-      initializeGlobe();
-    };
-    document.head.appendChild(script);
   };
 
   // Scroll-based trigger for lazy loading - load when user scrolls 300px
