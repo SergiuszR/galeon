@@ -5,15 +5,29 @@ class DynamicLoader {
   constructor() {
     this.loadedFiles = new Set();
     this.loadingPromises = new Map();
+    // Pages where globe and mapbox should load instantly
+    this.instantLoadPages = ['/dealers'];
     this.init();
   }
 
   init() {
+    // Check if current page should load functionality instantly
+    if (this.shouldLoadInstantly()) {
+      this.loadGlobeFunctionality();
+      this.loadMapboxFunctionality();
+      return;
+    }
+    
     // Set up scroll listener for globe functionality
     this.setupGlobeScrollListener();
     
     // Set up scroll listener for mapbox functionality (when user reaches #globe-section)
     this.setupMapboxScrollListener();
+  }
+
+  shouldLoadInstantly() {
+    const currentPath = window.location.pathname;
+    return this.instantLoadPages.includes(currentPath);
   }
 
   setupGlobeScrollListener() {
