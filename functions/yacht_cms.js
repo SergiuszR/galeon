@@ -1,235 +1,20 @@
 
-if (window.innerWidth <= 991) {
-  if (!gsap.core.globals().ScrollTrigger) {
-    gsap.registerPlugin(ScrollTrigger);
-  }
 
-  const canvas = document.getElementById("videoCanvasMobile");
-  const ctx = canvas.getContext("2d");
-  const loadingDiv = document.getElementById("loading");
+// ============================================================================
+// SWIPER MANAGEMENT
+// ============================================================================
 
-  const imageFolder = canvas.getAttribute("video-src-mobile");
-  const frameCount = parseInt(canvas.getAttribute("video-frames-mobile"), 10);
-  const imagePad = (i) => String(i + 1).padStart(5, "0") + ".avif";
-
-  const images = [];
-  const loaded = [];
-  let imagesLoaded = 0;
-  let currentFrame = 0;
-  let lastDrawnFrame = 0;
-  let firstFramesReady = false;
-
-  for (let i = 0; i < frameCount; i++) {
-    const img = new Image();
-    img.src = `${imageFolder.replace(/\/?$/, "/")}${imagePad(i)}`;
-    images.push(img);
-    loaded.push(false);
-    img.onload = () => {
-      loaded[i] = true;
-      imagesLoaded++;
-      if (i === 0) drawFrame(0);
-      if (loadingDiv) {
-        if (!firstFramesReady && imagesLoaded >= 3) {
-          firstFramesReady = true;
-          loadingDiv.style.display = "none";
-        } else if (!firstFramesReady) {
-          loadingDiv.textContent = `Loading... ${Math.round(
-            (imagesLoaded / Math.min(frameCount, 10)) * 100
-          )}%`;
-        }
-      }
-    };
-    img.onerror = () => {
-      loaded[i] = false;
-    };
-  }
-
-  function isReady(idx) {
-    return loaded[idx];
-  }
-
-  function resizeCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.offsetWidth * dpr;
-    canvas.height = canvas.offsetHeight * dpr;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(dpr, dpr);
-    drawFrame(currentFrame);
-  }
-
-  function drawFrame(idx) {
-    if (!isReady(idx)) {
-      if (isReady(lastDrawnFrame)) {
-        drawFrame(lastDrawnFrame);
-      }
-      return;
-    }
-    const img = images[idx];
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const scale = Math.min(
-      canvas.offsetWidth / img.width,
-      canvas.offsetHeight / img.height
-    );
-    const x = (canvas.offsetWidth - img.width * scale) / 2;
-    const y = (canvas.offsetHeight - img.height * scale) / 2;
-    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-    lastDrawnFrame = idx;
-  }
-
-  // Throttle drawing with requestAnimationFrame
-  let rafId = null;
-
-  function updateFrameThrottled(progress) {
-    if (rafId) return;
-    rafId = requestAnimationFrame(() => {
-      updateFrame(progress);
-      rafId = null;
-    });
-  }
-
-  function updateFrame(progress) {
-    currentFrame = Math.min(
-      frameCount - 1,
-      Math.floor(progress * (frameCount - 1))
-    );
-    drawFrame(currentFrame);
-  }
-
-  gsap.to(
-    {},
-    {
-      scrollTrigger: {
-        trigger: ".track",
-        start: "top top",
-        end: "bottom bottom",
-        scrub: true,
-        onUpdate: (self) => updateFrameThrottled(self.progress),
-        invalidateOnRefresh: true,
-      },
-    }
-  );
-
-  window.addEventListener("resize", resizeCanvas);
-  resizeCanvas();
-}
-if (window.innerWidth >= 992) {
-  if (!gsap.core.globals().ScrollTrigger) {
-    gsap.registerPlugin(ScrollTrigger);
-  }
-
-  const canvas = document.getElementById("videoCanvas");
-  const ctx = canvas.getContext("2d");
-  const videoSrc = canvas.getAttribute("video-src");
-
-  let video, frameWidth, frameHeight, timeline;
-
-  function resizeCanvasVideo() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.offsetWidth * dpr;
-    canvas.height = canvas.offsetHeight * dpr;
-    if (video && video.videoWidth && video.videoHeight) {
-      const videoRatio = video.videoWidth / video.videoHeight;
-      const canvasRatio = canvas.width / canvas.height;
-      if (videoRatio > canvasRatio) {
-        frameHeight = canvas.height / dpr;
-        frameWidth = frameHeight * videoRatio;
-      } else {
-        frameWidth = canvas.width / dpr;
-        frameHeight = frameWidth / videoRatio;
-      }
-    }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(dpr, dpr);
-  }
-
-  function renderFrameVideo() {
-    if (video && video.videoWidth && video.videoHeight) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const x = (canvas.offsetWidth - frameWidth) / 2;
-      const y = (canvas.offsetHeight - frameHeight) / 2;
-      ctx.drawImage(video, x, y, frameWidth, frameHeight);
-    }
-  }
-
-  function seekAndDrawVideo(time) {
-    return new Promise((resolve) => {
-      function onSeeked() {
-        video.removeEventListener("seeked", onSeeked);
-        renderFrameVideo();
-        resolve();
-      }
-      video.addEventListener("seeked", onSeeked);
-      video.currentTime = time;
-      video.play().then(() => video.pause());
-    });
-  }
-
-  function initTimelineVideo() {
-    if (timeline) {
-      timeline.kill();
-      timeline = null;
-    }
-    timeline = gsap
-      .timeline({
-        scrollTrigger: {
-          trigger: ".track",
-          start: "top top",
-          end: "bottom bottom",
-          scrub: true,
-          onUpdate: (self) => {
-            const targetTime = video.duration * self.progress;
-            if (Math.abs(video.currentTime - targetTime) > 0.01) {
-              seekAndDrawVideo(targetTime);
-            }
-          },
-        },
-      })
-      .to(video, {
-        currentTime: video.duration,
-        ease: "none",
-      });
-  }
-
-  function setupVideo() {
-    video = document.createElement("video");
-    video.muted = true;
-    video.preload = "auto";
-    video.playsInline = true;
-    video.loop = false;
-    video.src = videoSrc;
-    video.load();
-
-    video.addEventListener("loadedmetadata", function onMeta() {
-      video.removeEventListener("loadedmetadata", onMeta);
-      resizeCanvasVideo();
-      video.currentTime = 0;
-      renderFrameVideo();
-      initTimelineVideo();
-      ScrollTrigger.refresh();
-    });
-  }
-
-  window.addEventListener("resize", () => {
-    resizeCanvasVideo();
-    renderFrameVideo();
-    ScrollTrigger.refresh();
-  });
-
-  window.addEventListener("scroll", renderFrameVideo, {
-    passive: true,
-  });
-
-  setupVideo();
-}
- 
- 
+/**
+ * Manages all Swiper instances and their lifecycle
+ */
 class SwiperManager {
   constructor() {
     this.swiperInstances = [];
     this.transitionMs = 300;
     this._interiorListTimer = null;
-    this.variantGalleryCache = {}; // cache original slides for rebuilding
+    this.variantGalleryCache = {};
     this.currentVariantFilterTerm = '';
+    this._variantFirstFilterDone = false;
     this.init();
   }
 
@@ -385,10 +170,6 @@ class SwiperManager {
             swiper.update();
             this.updateYachtGallerySlideCount(swiper, tabPanel, this.getVisibleSlidesCount(selector));
           }, 100);
-
-          setTimeout(() => {
-            this.updateYachtGallerySlideCount(swiper, tabPanel, this.getVisibleSlidesCount(selector));
-          }, 100);
         },
         slideChange: (swiper) => {
           this.updateYachtGallerySlideCount(swiper, tabPanel, this.getVisibleSlidesCount(selector));
@@ -435,7 +216,6 @@ class SwiperManager {
     }
 
     if (slidesTotalElement) {
-      // totalSlides may represent filtered visible slides; otherwise count only non-hidden
       let total = totalSlides;
       if (total === null || total === undefined) {
         const visible = Array.from(swiper.slides || []).filter((s) => s.style.display !== 'none');
@@ -446,7 +226,6 @@ class SwiperManager {
     }
   }
 
-  // Count only visible slides inside a given slider element
   getVisibleSlidesCount(sliderElement) {
     try {
       const slides = Array.from(sliderElement.querySelectorAll('.slider_item-full'));
@@ -471,6 +250,12 @@ class SwiperManager {
   initializeSwipersInTab(tabPanel) {
     const swipersInTab = tabPanel.querySelectorAll(".slider-full");
     swipersInTab.forEach((swiperEl) => {
+      // Clear any inline hiding from previous tab switch
+      try {
+        swiperEl.style.removeProperty('visibility');
+        swiperEl.style.removeProperty('opacity');
+        swiperEl.style.removeProperty('transition');
+      } catch (_) {}
       const existingSwiper = this.swiperInstances.find(
         (swiper) => swiper && swiper.el === swiperEl
       );
@@ -486,7 +271,6 @@ class SwiperManager {
     );
     if (yachtGalleryTabs) {
       const tabButtons = yachtGalleryTabs.querySelectorAll(".tabs_button");
-
 
       this.initializeInteriorListVisibility();
 
@@ -504,12 +288,10 @@ class SwiperManager {
           }
 
           if (targetTabId) {
-
             const currentlyActivePanel = document.querySelector('.tabs_tab.active-tab');
             if (currentlyActivePanel && currentlyActivePanel.id === targetTabId) {
               return;
             }
-
 
             const previousActivePanel = document.querySelector('.tabs_tab.active-tab');
 
@@ -519,30 +301,33 @@ class SwiperManager {
                 const sw = this.swiperInstances.find(s => s && s.el === el);
                 if (sw) {
                   try {
-                    const idx = (typeof sw.realIndex === 'number') ? sw.realIndex : (typeof sw.activeIndex === 'number' ? sw.activeIndex : 0);
                     sw.allowSlideNext = false;
                     sw.allowSlidePrev = false;
                     sw.allowTouchMove = false;
-                    sw.slideTo(idx, 0);
                   } catch (_) {}
                 }
+                // Hide slider immediately to mask any index changes before fade-out completes
+                try {
+                  el.style.transition = 'opacity 0ms';
+                  el.style.opacity = '0';
+                  el.style.visibility = 'hidden';
+                } catch (_) {}
               });
-            } // Handle tab switching - show/hide tab panels
-            // Also ensure interior variant gallery is hidden when switching main tabs
+            }
+
             const interiorVariant = document.getElementById('tab-interior-variant-gallery');
             if (interiorVariant && targetTabId !== 'tab-interior-variant-gallery') {
               interiorVariant.classList.remove('active-tab');
               interiorVariant.style.display = 'none';
               interiorVariant.style.opacity = '0';
             }
+            
             this.switchToTab(targetTabId);
             
-            // Handle tab switching for swipers
             const targetTab = document.getElementById(targetTabId);
             if (targetTab) {
               const TRANSITION = this.transitionMs || 300;
 
-              // After fade-out completes, destroy swipers in the previous (now hidden) tab
               setTimeout(() => {
                 if (previousActivePanel) {
                   this.destroySwipersInTab(previousActivePanel);
@@ -550,20 +335,18 @@ class SwiperManager {
                 }
               }, TRANSITION + 20);
 
-              // Initialize swipers in the new target tab after it becomes visible
               setTimeout(() => {
                 this.initializeSwipersInTab(targetTab);
               }, TRANSITION + 50);
             }
 
-            // Handle interior list visibility after fade sequence
             clearTimeout(this._interiorListTimer);
             this._interiorListTimer = setTimeout(() => {
               const showList =
                 targetTabId === "tab-interior-gallery" ||
                 targetTabId === "tab-interior-variant-gallery";
               this.showInteriorList(showList);
-              // Clear active state on interior buttons when returning to base interior
+              
               if (targetTabId === 'tab-interior-gallery') {
                 document.querySelectorAll('.interior_list-wrapper .tabs_button').forEach(btn => {
                   btn.classList.remove('active-tab');
@@ -585,8 +368,7 @@ class SwiperManager {
         wrapper.style.transition = `opacity ${DURATION}ms ease`;
         wrapper.style.display = 'block';
         wrapper.style.opacity = '0';
-        // reflow
-        wrapper.offsetHeight;
+        wrapper.offsetHeight; // reflow
         wrapper.style.opacity = '1';
       } else {
         wrapper.style.transition = `opacity ${DURATION}ms ease`;
@@ -608,52 +390,43 @@ class SwiperManager {
       );
     }
     
-    // Initialize interior list button states
     this.initializeInteriorListButtons();
   }
 
   switchToTab(targetTabId) {
-    // Find all tab panels
     const allTabPanels = document.querySelectorAll('.tabs_tab');
-    
-    // Identify currently active panel (if any)
     const currentActive = Array.from(allTabPanels).find(p => p.classList.contains('active-tab'));
     const targetTab = document.getElementById(targetTabId);
     const tabsContainer = targetTab ? targetTab.closest('.tabs') : null;
     const containerEl = tabsContainer || (targetTab ? targetTab.parentElement : null);
     const TRANSITION_MS = 300;
     
-    // Lock container height during transition to prevent layout jumping
     if (containerEl) {
       const containerHeight = containerEl.offsetHeight;
       containerEl.style.minHeight = containerHeight + 'px';
     }
     
     if (currentActive && currentActive !== targetTab) {
-      // Fade out current panel, then hide
       currentActive.style.transition = `opacity ${TRANSITION_MS}ms ease`;
       currentActive.style.opacity = '0';
       setTimeout(() => {
         currentActive.classList.remove('active-tab');
         currentActive.style.display = 'none';
         
-        // After old is hidden, show new one and fade it in
         if (targetTab) {
           targetTab.classList.add('active-tab');
           targetTab.style.display = 'flex';
           targetTab.style.transition = `opacity ${TRANSITION_MS}ms ease`;
           targetTab.style.opacity = '0';
-          targetTab.offsetHeight; // reflow
+          targetTab.offsetHeight;
           targetTab.style.opacity = '1';
         }
         
-        // Release height lock after fade-in completes
         setTimeout(() => {
           if (containerEl) containerEl.style.minHeight = '';
         }, TRANSITION_MS + 20);
       }, TRANSITION_MS);
     } else if (currentActive && currentActive === targetTab) {
-      // Already on the target; ensure visible
       currentActive.style.display = 'flex';
       currentActive.style.opacity = '1';
       if (containerEl) containerEl.style.minHeight = '';
@@ -661,7 +434,6 @@ class SwiperManager {
     }
     
     if (targetTab) {
-      // If no current active, show target directly with fade-in
       if (!currentActive) {
         targetTab.classList.add('active-tab');
         targetTab.style.display = 'flex';
@@ -675,7 +447,6 @@ class SwiperManager {
       }
     }
     
-    // Update button states
     const allTabButtons = document.querySelectorAll('.tabs_button.is-yacht-gallery');
     allTabButtons.forEach(btn => {
       btn.classList.remove('active-tab');
@@ -683,7 +454,6 @@ class SwiperManager {
       btn.setAttribute('tabindex', '-1');
     });
     
-    // Find and activate the button that controls this tab
     const activeButton = document.querySelector(`[aria-controls="${targetTabId}"]`);
     if (activeButton) {
       activeButton.classList.add('active-tab');
@@ -697,28 +467,27 @@ class SwiperManager {
     interiorListWrappers.forEach((wrapper) => {
       const buttons = wrapper.querySelectorAll('.tabs_button');
       if (buttons.length > 0) {
-        // Ensure no button is active initially
         buttons.forEach(btn => {
           btn.classList.remove('active-tab');
           btn.setAttribute('aria-selected', 'false');
         });
         
-        // Add click handlers to interior list buttons
         buttons.forEach(button => {
-          button.addEventListener('click', (e) => {
-            // Determine filter term from button text (early to allow guard)
+          button.addEventListener("click", (e) => {
             const term = (button.textContent || button.innerText || '').trim();
             const termSan = this.sanitizeString(term);
             const panel = document.getElementById('tab-interior-variant-gallery');
             const isVariantActive = !!(panel && panel.classList.contains('active-tab'));
             const isAlreadyActive = button.getAttribute('aria-selected') === 'true';
 
-            // Strict guard: ignore clicks on already-active interior filter buttons
             if (isAlreadyActive) {
               return;
             }
 
-            // Guard: if clicking the already-active filter while the tab is active and term unchanged, do nothing
+            if (isVariantActive && this.currentVariantFilterTerm === termSan) {
+              return;
+            }
+
             if (isAlreadyActive && isVariantActive && this.currentVariantFilterTerm === termSan) {
               return;
             }
@@ -730,7 +499,6 @@ class SwiperManager {
             button.classList.add('active-tab');
             button.setAttribute('aria-selected', 'true');
 
-            // Switch to the interior variant gallery with animations and swiper setup
             this.pendingVariantFilterTerm = term;
             this.switchToInteriorVariant(term);
           });
@@ -745,11 +513,23 @@ class SwiperManager {
     if (!targetTab) return;
 
     const wasAlreadyActive = targetTab.classList.contains('active-tab');
+    const prehideSlider = () => {
+      try {
+        const sliderEl = targetTab.querySelector('.slider-full');
+        if (sliderEl) {
+          const DURATION = this.transitionMs || 300;
+          sliderEl.style.transition = `opacity ${DURATION}ms ease`;
+          sliderEl.style.opacity = '0';
+          sliderEl.style.visibility = 'hidden';
+        }
+      } catch (_) {}
+    };
 
-    // Perform animated switch (no-op if already on target)
+    if (!wasAlreadyActive) {
+      prehideSlider();
+    }
     this.switchToTab(targetTabId);
 
-    // Ensure main Interior tab button remains active while filtering variant
     const interiorMainButton = document.getElementById('button-interior-gallery');
     if (interiorMainButton) {
       const allTabButtons = document.querySelectorAll('.tabs_button.is-yacht-gallery');
@@ -766,7 +546,6 @@ class SwiperManager {
     }
 
     if (!wasAlreadyActive) {
-      // Re-init swipers after transition only when switching tabs
       const tabsContainer = targetTab.closest('.tabs');
       const allTabsInContainer = tabsContainer ? tabsContainer.querySelectorAll('.tabs_tab') : [];
       allTabsInContainer.forEach((tab) => {
@@ -776,36 +555,41 @@ class SwiperManager {
       this.swiperInstances = this.swiperInstances.filter((swiper) => swiper !== null);
 
       setTimeout(() => {
-        this.initializeSwipersInTab(targetTab);
-        // After swiper exists and panel is visible, perform filtering and refresh
+        const termToApply = this.pendingVariantFilterTerm || term || '';
+        // First-time: filter immediately while hidden to avoid any flash
+        this.filterInteriorVariantByTerm(termToApply, true, true);
         setTimeout(() => {
-          const termToApply = this.pendingVariantFilterTerm || term || '';
-          // If we just switched tabs, skip inner fade to avoid double animation
-          this.filterInteriorVariantByTerm(termToApply, true, false);
-          setTimeout(() => {
-            this.refreshInteriorVariantSwiper(termToApply);
-            this.pendingVariantFilterTerm = '';
-          }, 50);
-        }, 60);
+          this.refreshInteriorVariantSwiper(termToApply);
+          const sliderEl = targetTab.querySelector('.slider-full');
+          const DURATION = this.transitionMs || 300;
+          if (sliderEl) {
+            sliderEl.style.transition = `opacity ${DURATION}ms ease`;
+            sliderEl.style.visibility = 'visible';
+            // ensure transition applies
+            sliderEl.offsetHeight;
+            sliderEl.style.opacity = '1';
+          }
+          this.pendingVariantFilterTerm = '';
+          this._variantFirstFilterDone = true;
+        }, 80);
       }, this.transitionMs + 50);
     } else {
-      // Already on the variant tab: do not destroy/re-init the swiper; just filter in place and preserve index
       const termToApply = this.pendingVariantFilterTerm || term || '';
       this.filterInteriorVariantByTerm(termToApply, false, true);
+      // Ensure visibility is correct for subsequent transitions
       setTimeout(() => {
-        this.refreshInteriorVariantSwiper(termToApply);
+        const sliderEl = targetTab.querySelector('.slider-full');
+        if (sliderEl) sliderEl.style.visibility = 'visible';
         this.pendingVariantFilterTerm = '';
       }, 80);
     }
 
-    // Ensure interior list remains visible when variant is active
     clearTimeout(this._interiorListTimer);
     this._interiorListTimer = setTimeout(() => {
       this.showInteriorList(true);
     }, this.transitionMs);
   }
 
-  // Robust sanitize helper: lowercase, remove accents, collapse non-alphanumerics
   sanitizeString(str) {
     return (str || '')
       .toLowerCase()
@@ -815,7 +599,6 @@ class SwiperManager {
       .trim();
   }
 
-  // Extract possible filenames from any media tags inside a slide
   getFilenamesFromSlide(slideEl) {
     const names = [];
     const imgs = Array.from(slideEl.querySelectorAll('img'));
@@ -865,7 +648,6 @@ class SwiperManager {
     };
 
     const performFilter = () => {
-      // Capture current active slide identity to preserve after filtering
       const existing = this.swiperInstances.find(sw => sw && sw.el === sliderEl);
       let prevKey = null;
       if (preserveActive && existing && existing.slides) {
@@ -879,7 +661,16 @@ class SwiperManager {
         } catch (_) {}
       }
 
-      // Rebuild slide list from original cache, then keep only matches
+      if (existing) {
+        try {
+          const idx = (typeof existing.realIndex === 'number') ? existing.realIndex : (typeof existing.activeIndex === 'number' ? existing.activeIndex : 0);
+          existing.allowSlideNext = false;
+          existing.allowSlidePrev = false;
+          existing.allowTouchMove = false;
+          existing.slideTo(idx, 0);
+        } catch (_) {}
+      }
+
       if (this.variantGalleryCache.originalHTML) {
         list.innerHTML = this.variantGalleryCache.originalHTML;
       } else {
@@ -928,11 +719,9 @@ class SwiperManager {
         }, 50);
       }
 
-      // Remember the last applied filter term (sanitized)
       this.currentVariantFilterTerm = termSan;
 
       if (!immediate) {
-        // Fade back in
         sliderEl.style.transition = `opacity ${DURATION}ms ease`;
         sliderEl.style.opacity = '1';
         setTimeout(releaseHeight, DURATION + 20);
@@ -942,7 +731,6 @@ class SwiperManager {
     };
 
     if (!immediate) {
-      // Fade out then filter
       lockHeight();
       sliderEl.style.transition = `opacity ${DURATION}ms ease`;
       sliderEl.style.opacity = '0';
@@ -970,7 +758,7 @@ class SwiperManager {
       const index = slides.indexOf(firstVisible);
       if (index >= 0) swiper.slideTo(index, 0);
     }
-    // Update displayed counters inside the panel
+    
     this.updateYachtGallerySlideCount(swiper, panel, visibleSlides.length);
   }
 
@@ -991,116 +779,360 @@ class SwiperManager {
   }
 }
 
-new SwiperManager();
+// ============================================================================
+// VIDEO CANVAS ANIMATIONS
+// ============================================================================
 
+/**
+ * Mobile Video Canvas Animation (≤991px)
+ */
+function initMobileVideoCanvas() {
+  if (window.innerWidth > 991) return;
+  
+  if (!gsap.core.globals().ScrollTrigger) {
+    gsap.registerPlugin(ScrollTrigger);
+  }
 
+  const canvas = document.getElementById("videoCanvasMobile");
+  const ctx = canvas.getContext("2d");
+  const loadingDiv = document.getElementById("loading");
+
+  const imageFolder = canvas.getAttribute("video-src-mobile");
+  const frameCount = parseInt(canvas.getAttribute("video-frames-mobile"), 10);
+  const imagePad = (i) => String(i + 1).padStart(5, "0") + ".avif";
+
+  const images = [];
+  const loaded = [];
+  let imagesLoaded = 0;
+  let currentFrame = 0;
+  let lastDrawnFrame = 0;
+  let firstFramesReady = false;
+
+  // Load images
+  for (let i = 0; i < frameCount; i++) {
+    const img = new Image();
+    img.src = `${imageFolder.replace(/\/?$/, "/")}${imagePad(i)}`;
+    images.push(img);
+    loaded.push(false);
+    
+    img.onload = () => {
+      loaded[i] = true;
+      imagesLoaded++;
+      if (i === 0) drawFrame(0);
+      
+      if (loadingDiv) {
+        if (!firstFramesReady && imagesLoaded >= 3) {
+          firstFramesReady = true;
+          loadingDiv.style.display = "none";
+        } else if (!firstFramesReady) {
+          loadingDiv.textContent = `Loading... ${Math.round(
+            (imagesLoaded / Math.min(frameCount, 10)) * 100
+          )}%`;
+        }
+      }
+    };
+    
+    img.onerror = () => {
+      loaded[i] = false;
+    };
+  }
+
+  function isReady(idx) {
+    return loaded[idx];
+  }
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    drawFrame(currentFrame);
+  }
+
+  function drawFrame(idx) {
+    if (!isReady(idx)) {
+      if (isReady(lastDrawnFrame)) {
+        drawFrame(lastDrawnFrame);
+      }
+      return;
+    }
+    
+    const img = images[idx];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const scale = Math.min(
+      canvas.offsetWidth / img.width,
+      canvas.offsetHeight / img.height
+    );
+    const x = (canvas.offsetWidth - img.width * scale) / 2;
+    const y = (canvas.offsetHeight - img.height * scale) / 2;
+    
+    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+    lastDrawnFrame = idx;
+  }
+
+  // Throttled frame updates
+  let rafId = null;
+
+  function updateFrameThrottled(progress) {
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      updateFrame(progress);
+      rafId = null;
+    });
+  }
+
+  function updateFrame(progress) {
+    currentFrame = Math.min(
+      frameCount - 1,
+      Math.floor(progress * (frameCount - 1))
+    );
+    drawFrame(currentFrame);
+  }
+
+  // GSAP ScrollTrigger setup
+  gsap.to({}, {
+    scrollTrigger: {
+      trigger: ".track",
+      start: "top top",
+      end: "bottom bottom",
+      scrub: true,
+      onUpdate: (self) => updateFrameThrottled(self.progress),
+      invalidateOnRefresh: true,
+    },
+  });
+
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+}
+
+/**
+ * Desktop Video Canvas Animation (≥992px)
+ */
+function initDesktopVideoCanvas() {
+  if (window.innerWidth < 992) return;
+  
+  if (!gsap.core.globals().ScrollTrigger) {
+    gsap.registerPlugin(ScrollTrigger);
+  }
+
+  const canvas = document.getElementById("videoCanvas");
+  const ctx = canvas.getContext("2d");
+  const videoSrc = canvas.getAttribute("video-src");
+
+  let video, frameWidth, frameHeight, timeline;
+
+  function resizeCanvasVideo() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    
+    if (video && video.videoWidth && video.videoHeight) {
+      const videoRatio = video.videoWidth / video.videoHeight;
+      const canvasRatio = canvas.width / canvas.height;
+      
+      if (videoRatio > canvasRatio) {
+        frameHeight = canvas.height / dpr;
+        frameWidth = frameHeight * videoRatio;
+      } else {
+        frameWidth = canvas.width / dpr;
+        frameHeight = frameWidth / videoRatio;
+      }
+    }
+    
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+  }
+
+  function renderFrameVideo() {
+    if (video && video.videoWidth && video.videoHeight) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const x = (canvas.offsetWidth - frameWidth) / 2;
+      const y = (canvas.offsetHeight - frameHeight) / 2;
+      ctx.drawImage(video, x, y, frameWidth, frameHeight);
+    }
+  }
+
+  function seekAndDrawVideo(time) {
+    return new Promise((resolve) => {
+      function onSeeked() {
+        video.removeEventListener("seeked", onSeeked);
+        renderFrameVideo();
+        resolve();
+      }
+      video.addEventListener("seeked", onSeeked);
+      video.currentTime = time;
+      video.play().then(() => video.pause());
+    });
+  }
+
+  function initTimelineVideo() {
+    if (timeline) {
+      timeline.kill();
+      timeline = null;
+    }
+    
+    timeline = gsap.timeline({
+      scrollTrigger: {
+        trigger: ".track",
+        start: "top top",
+        end: "bottom bottom",
+        scrub: true,
+        onUpdate: (self) => {
+          const targetTime = video.duration * self.progress;
+          if (Math.abs(video.currentTime - targetTime) > 0.01) {
+            seekAndDrawVideo(targetTime);
+          }
+        },
+      },
+    }).to(video, {
+      currentTime: video.duration,
+      ease: "none",
+    });
+  }
+
+  function setupVideo() {
+    video = document.createElement("video");
+    video.muted = true;
+    video.preload = "auto";
+    video.playsInline = true;
+    video.loop = false;
+    video.src = videoSrc;
+    video.load();
+
+    video.addEventListener("loadedmetadata", function onMeta() {
+      video.removeEventListener("loadedmetadata", onMeta);
+      resizeCanvasVideo();
+      video.currentTime = 0;
+      renderFrameVideo();
+      initTimelineVideo();
+      ScrollTrigger.refresh();
+    });
+  }
+
+  window.addEventListener("resize", () => {
+    resizeCanvasVideo();
+    renderFrameVideo();
+    ScrollTrigger.refresh();
+  });
+
+  window.addEventListener("scroll", renderFrameVideo, { passive: true });
+  setupVideo();
+}
+
+// ============================================================================
+// TAB MANAGEMENT (jQuery-based)
+// ============================================================================
+
+/**
+ * Layout tabs functionality
+ */
 $(function () {
-	function showPins(tabId) {
-		var tabSuffix = tabId.replace(/^button-/, '');
-		$('.layouts_pin-list > [role="listitem"]').each(function () {
-			var show =
-				$(this).find('.modal_button[data-tab="' + tabSuffix + '"]').length > 0;
-			$(this).css('display', show ? 'block' : 'none');
-		});
-	}
+  function showPins(tabId) {
+    var tabSuffix = tabId.replace(/^button-/, '');
+    $('.layouts_pin-list > [role="listitem"]').each(function () {
+      var show =
+        $(this).find('.modal_button[data-tab="' + tabSuffix + '"]').length > 0;
+      $(this).css('display', show ? 'block' : 'none');
+    });
+  }
 
-	function activateTab($btn) {
-		var idx = $btn.index();
-		$("[data-control='layouts']")
-			.removeClass('active-tab')
-			.attr({ 'aria-selected': 'false', tabindex: '-1' });
-		$btn
-			.addClass('active-tab')
-			.attr({ 'aria-selected': 'true', tabindex: '0' })
-			.focus();
-		var tabId = $btn.attr('id');
+  function activateTab($btn) {
+    var idx = $btn.index();
+    $("[data-control='layouts']")
+      .removeClass('active-tab')
+      .attr({ 'aria-selected': 'false', tabindex: '-1' });
+    $btn
+      .addClass('active-tab')
+      .attr({ 'aria-selected': 'true', tabindex: '0' })
+      .focus();
+    var tabId = $btn.attr('id');
 
-			$("[data-control='layouts']").each(function () {
-		var isActive = $(this).attr('id') === tabId;
-		$(this)
-			.toggleClass('active-tab', isActive)
-			.attr('tabindex', isActive ? '0' : '-1');
-	});
+    $("[data-control='layouts']").each(function () {
+      var isActive = $(this).attr('id') === tabId;
+      $(this)
+        .toggleClass('active-tab', isActive)
+        .attr('tabindex', isActive ? '0' : '-1');
+    });
 
-	// Also activate the corresponding .tabs_tab-item elements
-	$('.tabs_tab-item').each(function () {
-		var isActive = $(this).attr('aria-labelledby') === tabId;
-		$(this).toggleClass('active-tab', isActive);
-	});
+    $('.tabs_tab-item').each(function () {
+      var isActive = $(this).attr('aria-labelledby') === tabId;
+      $(this).toggleClass('active-tab', isActive);
+    });
 
-		showPins(tabId);
-	}
+    showPins(tabId);
+  }
 
-	// Initialize tab states and find first visible tab
-	function initializeTabStates() {
-		var $visibleTabs = $("[data-control='layouts']").filter(function() {
-			return !$(this).hasClass('w-condition-invisible');
-		});
-		
-		if ($visibleTabs.length === 0) return;
-		
-		var $firstVisibleTab = $visibleTabs.first();
-		var firstVisibleTabId = $firstVisibleTab.attr('id');
-		
-		// Set all tabs to inactive state
-		$("[data-control='layouts']").each(function () {
-			$(this).removeClass('active-tab')
-				.attr({ 'aria-selected': 'false', tabindex: '-1' });
-		});
-		
-		// Set all tab panels to inactive state
-		$('.tabs_tab-item').each(function () {
-			$(this).removeClass('active-tab');
-		});
-		
-		// Activate the first visible tab
-		$firstVisibleTab
-			.addClass('active-tab')
-			.attr({ 'aria-selected': 'true', tabindex: '0' });
-		
-		// Activate the corresponding tab panel
-		$('.tabs_tab-item').each(function () {
-			var isActive = $(this).attr('aria-labelledby') === firstVisibleTabId;
-			$(this).toggleClass('active-tab', isActive);
-		});
-		
-		// Show pins for the first visible tab
-		showPins(firstVisibleTabId);
-	}
+  function initializeTabStates() {
+    var $visibleTabs = $("[data-control='layouts']").filter(function() {
+      return !$(this).hasClass('w-condition-invisible');
+    });
+    
+    if ($visibleTabs.length === 0) return;
+    
+    var $firstVisibleTab = $visibleTabs.first();
+    var firstVisibleTabId = $firstVisibleTab.attr('id');
+    
+    $("[data-control='layouts']").each(function () {
+      $(this).removeClass('active-tab')
+        .attr({ 'aria-selected': 'false', tabindex: '-1' });
+    });
+    
+    $('.tabs_tab-item').each(function () {
+      $(this).removeClass('active-tab');
+    });
+    
+    $firstVisibleTab
+      .addClass('active-tab')
+      .attr({ 'aria-selected': 'true', tabindex: '0' });
+    
+    $('.tabs_tab-item').each(function () {
+      var isActive = $(this).attr('aria-labelledby') === firstVisibleTabId;
+      $(this).toggleClass('active-tab', isActive);
+    });
+    
+    showPins(firstVisibleTabId);
+  }
 
-	$("[data-control='layouts']").on('click', function () {
-		activateTab($(this));
-	});
+  $("[data-control='layouts']").on('click', function () {
+    activateTab($(this));
+  });
 
-	$("[data-control='layouts']").on('keydown', function (e) {
-		var $buttons = $("[data-control='layouts']");
-		var idx = $buttons.index(this);
-		if (e.key === 'ArrowRight' || e.keyCode === 39) {
-			e.preventDefault();
-			var next = (idx + 1) % $buttons.length;
-			$buttons.eq(next).focus();
-		}
-		if (e.key === 'ArrowLeft' || e.keyCode === 37) {
-			e.preventDefault();
-			var prev = (idx - 1 + $buttons.length) % $buttons.length;
-			$buttons.eq(prev).focus();
-		}
-		if (
-			e.key === 'Enter' ||
-			e.key === ' ' ||
-			e.keyCode === 13 ||
-			e.keyCode === 32
-		) {
-			e.preventDefault();
-			activateTab($(this));
-		}
-	});
+  $("[data-control='layouts']").on('keydown', function (e) {
+    var $buttons = $("[data-control='layouts']");
+    var idx = $buttons.index(this);
+    if (e.key === 'ArrowRight' || e.keyCode === 39) {
+      e.preventDefault();
+      var next = (idx + 1) % $buttons.length;
+      $buttons.eq(next).focus();
+    }
+    if (e.key === 'ArrowLeft' || e.keyCode === 37) {
+      e.preventDefault();
+      var prev = (idx - 1 + $buttons.length) % $buttons.length;
+      $buttons.eq(prev).focus();
+    }
+    if (
+      e.key === 'Enter' ||
+      e.key === ' ' ||
+      e.keyCode === 13 ||
+      e.keyCode === 32
+    ) {
+      e.preventDefault();
+      activateTab($(this));
+    }
+  });
 
-	// Initialize tab states when DOM is ready
-	initializeTabStates();
+  initializeTabStates();
 });
 
+// ============================================================================
+// CMS TAB MANAGEMENT
+// ============================================================================
 
+/**
+ * Fix invisible active tabs in CMS
+ */
 function fixInvisibleActiveTab() {
   const tabButtons = Array.from(document.querySelectorAll('.tabs_button.is-cms'));
   const tabPanels = Array.from(document.querySelectorAll('.tabs_tab'));
@@ -1147,10 +1179,13 @@ function fixInvisibleActiveTab() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', fixInvisibleActiveTab);
+// ============================================================================
+// FINISH LIST INITIALIZATION
+// ============================================================================
 
- 
-
+/**
+ * Initialize finish list selection
+ */
 document.addEventListener("DOMContentLoaded", function () {
   setTimeout(function () {
     const currentScrollY = window.scrollY;
@@ -1175,8 +1210,10 @@ document.addEventListener("DOMContentLoaded", function () {
     window.scrollTo(0, currentScrollY);
   }, 2000);
 });
- 
 
+// ============================================================================
+// VIDEO FILTERING SYSTEM
+// ============================================================================
 
 let currentFilters = {
   space: null,
@@ -1191,14 +1228,11 @@ function updateVideoVisibility() {
     }
   });
 
-  // First fade out all items
   $(".custom_item").css("opacity", "0").removeClass("is-custom-show");
 
-  // Wait for fade out to complete, then hide with display
   setTimeout(() => {
     $(".custom_item").css("display", "none");
     
-    // Now show matching items
     $(".custom_item").each(function () {
       let videoItem = $(this);
       let shouldShow = shouldShowVideo(videoItem, currentFilters);
@@ -1232,6 +1266,10 @@ function shouldShowVideo(videoItem, filters) {
 
   return true;
 }
+
+// ============================================================================
+// PLYR VIDEO PLAYER SETUP
+// ============================================================================
 
 $(document).ready(function () {
   $("[data-vimeo]").css({
@@ -1499,14 +1537,30 @@ $(document).ready(function () {
   });
 });
 
-    
+// ============================================================================
+// PIN HEIGHT MANAGEMENT
+// ============================================================================
 
 function setPinHeight() {
   var h = $('.tabs_tab-item').first().outerHeight();
   $('.layouts_pin-wrapper').height(h);
 }
+
 $(function() {
   setPinHeight();
   $(window).on('resize', setPinHeight);
 });
- 
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+// Initialize video canvas animations
+initMobileVideoCanvas();
+initDesktopVideoCanvas();
+
+// Initialize SwiperManager
+new SwiperManager();
+
+// Fix invisible active tabs
+document.addEventListener('DOMContentLoaded', fixInvisibleActiveTab);
