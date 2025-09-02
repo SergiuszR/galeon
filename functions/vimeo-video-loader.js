@@ -3,8 +3,8 @@
 
 document.addEventListener('DOMContentLoaded', function() {
   // CONFIGURATION
-  const VIMEO_ACCESS_TOKEN = '4f1085a11f33827307d4171e83b25755'; // keep secure!
-  const ALLOWED_DOMAINS = ['galeon-project.webflow.io', 'galeon.pl']; // no protocol
+  const VIMEO_ACCESS_TOKEN = '4f1085a11f33827307d4171e83b25755';
+  const ALLOWED_DOMAINS = ['galeon-project.webflow.io', 'galeon.yachts'];
 
   // DOMAIN CHECK
   if (!ALLOWED_DOMAINS.includes(window.location.hostname)) {
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // Find all video elements with data-video-id attribute
-  document.querySelectorAll('video.native_video[data-video-id]').forEach(function(video) {
+  document.querySelectorAll('video[data-video-id]').forEach(function(video) {
     var videoId = video.getAttribute('data-video-id');
     if (!videoId || videoId.trim() === '') return;
 
