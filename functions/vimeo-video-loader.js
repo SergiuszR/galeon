@@ -30,6 +30,12 @@ document.addEventListener('DOMContentLoaded', function() {
                          .sort(function(a, b) { return b.height - a.height; })[0];
 
       if (mp4File) {
+        // Check if video element still exists in DOM
+        if (!video || !video.parentNode) {
+          console.warn('Video element no longer exists in DOM for video ID:', videoId);
+          return;
+        }
+
         // Remove old sources
         while (video.firstChild) video.removeChild(video.firstChild);
 
