@@ -35,6 +35,7 @@ class SwiperManager {
   initializeBlockSliders() {
     const segments = document.querySelectorAll(".block-slider_grid");
     segments.forEach((segment) => {
+      if (!segment) return; // Guard against null segment
       const sliderWrap = segment.querySelector(".block-slider_list-wrap");
       if (sliderWrap) {
         this.createSwiper(sliderWrap, {
@@ -59,6 +60,7 @@ class SwiperManager {
     document
       .querySelectorAll(".slider_wrapper:not(.yacht_gallery_component)")
       .forEach((parentElement) => {
+        if (!parentElement) return; // Guard against null parentElement
         const sliderElement = parentElement.querySelector(".slider");
         if (sliderElement) {
           const isWideSlider = parentElement.hasAttribute("data-wide-slider");
@@ -126,6 +128,7 @@ class SwiperManager {
   initializeYachtGallerySliders() {
     const allYachtSwipers = document.querySelectorAll(".tabs .slider-full");
     allYachtSwipers.forEach((element) => {
+      if (!element) return; // Guard against null element
       this.createYachtGallerySwiper(element);
       // Prime cache for variant gallery original slides
       const tabPanel = element.closest('.tabs_tab');
@@ -182,8 +185,60 @@ class SwiperManager {
     });
   }
 
+  // Validate that the container has a proper wrapper and at least one slide
+  canInitializeSwiper(container, config) {
+    try {
+      if (!container || container.nodeType !== 1) return false;
+      const wrapperClass = (config && config.wrapperClass) ? String(config.wrapperClass).trim() : '';
+      const slideClass = (config && config.slideClass) ? String(config.slideClass).trim() : '';
+      if (!wrapperClass || !slideClass) return false;
+      const wrapper = container.querySelector(`.${wrapperClass}`);
+      if (!wrapper) return false;
+      const slides = wrapper.querySelectorAll(`.${slideClass}`);
+      return slides && slides.length > 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
   createSwiper(element, config) {
-    const swiper = new Swiper(element, config);
+    // Guard: ensure a valid Element is provided
+    if (!element || (element.nodeType !== 1 && !(typeof Element !== 'undefined' && element instanceof Element))) {
+      return null;
+    }
+
+    // Defensive clone and sanitize of config
+    const safeConfig = { ...(config || {}) };
+
+    // Sanitize navigation controls to avoid passing null/undefined
+    if (safeConfig.navigation) {
+      const nextEl = safeConfig.navigation.nextEl;
+      const prevEl = safeConfig.navigation.prevEl;
+      const isElement = (el) => !!el && (el.nodeType === 1 || (typeof Element !== 'undefined' && el instanceof Element));
+      if (isElement(nextEl) && isElement(prevEl)) {
+        safeConfig.navigation = { nextEl, prevEl };
+      } else {
+        delete safeConfig.navigation;
+      }
+    }
+
+    // Sanitize pagination element
+    if (safeConfig.pagination) {
+      const el = safeConfig.pagination.el;
+      const isElement = (node) => !!node && (node.nodeType === 1 || (typeof Element !== 'undefined' && node instanceof Element));
+      if (isElement(el)) {
+        safeConfig.pagination = { ...safeConfig.pagination, el };
+      } else {
+        delete safeConfig.pagination;
+      }
+    }
+
+    // Do not initialize when wrapper/slides are missing (e.g., empty CMS collections)
+    if (!this.canInitializeSwiper(element, safeConfig)) {
+      return null;
+    }
+
+    const swiper = new Swiper(element, safeConfig);
     this.swiperInstances.push(swiper);
     return swiper;
   }
@@ -228,16 +283,20 @@ class SwiperManager {
 
   getVisibleSlidesCount(sliderElement) {
     try {
+      if (!sliderElement) return 0; // Guard against null sliderElement
       const slides = Array.from(sliderElement.querySelectorAll('.slider_item-full'));
-      return slides.filter(s => s.style.display !== 'none').length || slides.length;
+      return slides.filter(s => s && s.style.display !== 'none').length || slides.length;
     } catch (_) {
       return 0;
     }
   }
 
   destroySwipersInTab(tabPanel) {
+    if (!tabPanel) return; // Guard against null tabPanel
     const swipersInTab = tabPanel.querySelectorAll(".slider-full");
     swipersInTab.forEach((swiperEl) => {
+      if (!swiperEl) return; // Guard against null swiperEl
+      
       this.swiperInstances.forEach((swiper, index) => {
         if (swiper && swiper.el === swiperEl) {
           swiper.destroy(true, true);
@@ -248,8 +307,11 @@ class SwiperManager {
   }
 
   initializeSwipersInTab(tabPanel) {
+    if (!tabPanel) return; // Guard against null tabPanel
     const swipersInTab = tabPanel.querySelectorAll(".slider-full");
     swipersInTab.forEach((swiperEl) => {
+      if (!swiperEl) return; // Guard against null swiperEl
+      
       // Clear any inline hiding from previous tab switch
       try {
         swiperEl.style.removeProperty('visibility');
@@ -269,6 +331,7 @@ class SwiperManager {
     const yachtGalleryTabs = document.querySelector(
       ".tabs_buttons.is-yacht-gallery"
     );
+    if (!yachtGalleryTabs) return; // Early return if no yacht gallery tabs found
     if (yachtGalleryTabs) {
       const tabButtons = yachtGalleryTabs.querySelectorAll(".tabs_button");
 
@@ -298,6 +361,7 @@ class SwiperManager {
             if (previousActivePanel) {
               const swiperEls = Array.from(previousActivePanel.querySelectorAll('.slider-full'));
               swiperEls.forEach((el) => {
+                if (!el) return; // Guard against null elements
                 const sw = this.swiperInstances.find(s => s && s.el === el);
                 if (sw) {
                   try {
@@ -600,9 +664,13 @@ class SwiperManager {
   }
 
   getFilenamesFromSlide(slideEl) {
+    if (!slideEl) return []; // Guard against null slideEl
+    
     const names = [];
     const imgs = Array.from(slideEl.querySelectorAll('img'));
     imgs.forEach((img) => {
+      if (!img) return; // Guard against null img elements
+      
       const candidates = [];
       if (img.currentSrc) candidates.push(img.currentSrc);
       if (img.src) candidates.push(img.src);
@@ -633,7 +701,10 @@ class SwiperManager {
     const tokens = termSan.split(/\s+/).filter(Boolean);
     const sliderEl = panel.querySelector('.slider-full');
     const list = panel.querySelector('.slider_list-full');
-    if (!sliderEl || !list) return;
+    if (!sliderEl || !list) {
+      console.warn('Required slider elements not found in variant gallery');
+      return;
+    }
 
     const DURATION = this.transitionMs || 300;
     const containerEl = panel;
@@ -743,10 +814,20 @@ class SwiperManager {
   refreshInteriorVariantSwiper(termRaw) {
     const panel = document.getElementById('tab-interior-variant-gallery');
     if (!panel) return;
+    
     const slides = Array.from(panel.querySelectorAll('.slider_item-full'));
     const sliderEl = panel.querySelector('.slider-full');
+    
+    if (!sliderEl) {
+      console.warn('Slider element not found in variant gallery');
+      return;
+    }
+    
     const swiper = this.swiperInstances.find(sw => sw && sw.el === sliderEl);
-    if (!swiper) return;
+    if (!swiper) {
+      console.warn('Swiper instance not found for variant gallery');
+      return;
+    }
 
     swiper.updateSlides();
     swiper.updateSlidesClasses();
@@ -1192,17 +1273,30 @@ document.addEventListener("DOMContentLoaded", function () {
     const finishLists = document.querySelectorAll(".custom_finish_list");
     
     finishLists.forEach(function (finishList) {
+      if (!finishList) return; // Guard against null finishList
+      
       const finishItems = finishList.querySelectorAll(".custom_finish_item");
       
       for (let i = 0; i < finishItems.length; i++) {
         const finishItem = finishItems[i];
-        if (window.getComputedStyle(finishItem).display !== "none") {
-          const radioLabel = finishItem.querySelector(".custom_radio_label");
-          if (radioLabel) {
-            radioLabel.click();
-            radioLabel.classList.add("is-list-active");
+        
+        // Guard against null/undefined finishItem before calling getComputedStyle
+        if (!finishItem) continue;
+        
+        try {
+          const computedStyle = window.getComputedStyle(finishItem);
+          if (computedStyle && computedStyle.display !== "none") {
+            const radioLabel = finishItem.querySelector(".custom_radio_label");
+            if (radioLabel) {
+              radioLabel.click();
+              radioLabel.classList.add("is-list-active");
+            }
+            break;
           }
-          break;
+        } catch (error) {
+          // Silently handle any getComputedStyle errors and continue with next item
+          console.warn("Error getting computed style for finish item:", error);
+          continue;
         }
       }
     });
