@@ -663,6 +663,66 @@ class SwiperManager {
       .trim();
   }
 
+  slugifyForMatch(str) {
+    return (str || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\.[a-z0-9]+$/, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  extractVariantSlugFromFilename(filename) {
+    if (!filename) return '';
+    let base = String(filename).toLowerCase();
+    // strip query
+    base = base.split('?')[0];
+    // strip extension
+    base = base.replace(/\.[a-z0-9]+$/i, '');
+    // if cdn hash prefix exists like "<hash>_<slug>", take part after last underscore
+    if (base.includes('_')) {
+      base = base.substring(base.lastIndexOf('_') + 1);
+    }
+    // remove trailing size/suffix tokens: -p-500, -w-1920, -500w, -2x, -1, -2, -w, etc. (repeat while present)
+    let changed = true;
+    while (changed) {
+      const before = base;
+      base = base
+        .replace(/-(?:p-\d+|w-\d+|\d+w|\d+x|\d+|w)$/i, '');
+      changed = before !== base;
+    }
+    // final slug normalize (collapse non-alnum to hyphens)
+    base = base
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return base;
+  }
+
+  getVariantSlugsFromSlide(slideEl) {
+    const names = this.getFilenamesFromSlide(slideEl);
+    return names.map(n => this.extractVariantSlugFromFilename(n)).filter(Boolean);
+  }
+
+  getAltLabelsFromSlide(slideEl) {
+    if (!slideEl) return [];
+    const labels = [];
+    const imgs = Array.from(slideEl.querySelectorAll('img'));
+    imgs.forEach(img => {
+      if (!img) return;
+      const alt = img.getAttribute('alt') || img.alt || '';
+      if (alt && alt.trim()) labels.push(alt.trim());
+    });
+    return labels;
+  }
+
+  getAltSlugsFromSlide(slideEl) {
+    const labels = this.getAltLabelsFromSlide(slideEl);
+    return labels.map(l => this.slugifyForMatch(l)).filter(Boolean);
+  }
+
   getFilenamesFromSlide(slideEl) {
     if (!slideEl) return []; // Guard against null slideEl
     
@@ -698,7 +758,8 @@ class SwiperManager {
     if (!panel) return;
 
     const termSan = this.sanitizeString(termRaw);
-    const tokens = termSan.split(/\s+/).filter(Boolean);
+    // Build slug from visible label text inside button (e.g., Walnut High Gloss)
+    const termSlug = this.slugifyForMatch(termSan);
     const sliderEl = panel.querySelector('.slider-full');
     const list = panel.querySelector('.slider_list-full');
     if (!sliderEl || !list) {
@@ -726,8 +787,8 @@ class SwiperManager {
           const prevIdx = (typeof existing.realIndex === 'number') ? existing.realIndex : (typeof existing.activeIndex === 'number' ? existing.activeIndex : 0);
           const prevSlideEl = existing.slides[prevIdx];
           if (prevSlideEl) {
-            const names = this.getFilenamesFromSlide(prevSlideEl);
-            if (names && names.length) prevKey = this.sanitizeString(names[0]);
+            const slugs = this.getAltSlugsFromSlide(prevSlideEl);
+            if (slugs && slugs.length) prevKey = slugs[0];
           }
         } catch (_) {}
       }
@@ -750,9 +811,8 @@ class SwiperManager {
 
       const allSlides = Array.from(list.querySelectorAll('.slider_item-full'));
       const matchingSlides = allSlides.filter((slide) => {
-        const filenames = this.getFilenamesFromSlide(slide);
-        const fileSanPool = filenames.map(n => this.sanitizeString(n)).join(' | ');
-        return tokens.length === 0 ? true : tokens.every(t => fileSanPool.includes(t));
+        const altSlugs = this.getAltSlugsFromSlide(slide);
+        return termSlug.length === 0 ? true : altSlugs.includes(termSlug);
       });
 
       allSlides.forEach((slide) => {
@@ -778,8 +838,8 @@ class SwiperManager {
             try {
               const newSlides = Array.from(list.querySelectorAll('.slider_item-full'));
               for (let i = 0; i < newSlides.length; i++) {
-                const names = this.getFilenamesFromSlide(newSlides[i]).map(n => this.sanitizeString(n));
-                if (names.includes(prevKey)) { targetIndex = i; break; }
+                const slugs = this.getAltSlugsFromSlide(newSlides[i]);
+                if (slugs.includes(prevKey)) { targetIndex = i; break; }
               }
             } catch (_) {}
           }
