@@ -714,7 +714,11 @@ function setupToggleNavigation() {
 
   if (!toggle) return;
 
-  setTimeout(() => toggle.setAttribute("aria-expanded", "false"), 3000);
+  // Initialize aria-expanded based on the current state to avoid race conditions
+  toggle.setAttribute(
+    "aria-expanded",
+    toggle.classList.contains("w--open") ? "true" : "false"
+  );
 
   const observer = new MutationObserver(() => {
     const isOpen = toggle.classList.contains("w--open");
