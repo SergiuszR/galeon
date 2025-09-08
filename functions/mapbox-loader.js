@@ -413,21 +413,10 @@ function setupMapboxLazyLoad() {
   if (globeSection) {
     globeSection.addEventListener("click", async () => {
       if (!mapLoaded && !map) {
-        // Show loading state
-        const loadingIndicator = document.createElement("div");
-        loadingIndicator.textContent = "Loading map...";
-        loadingIndicator.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 9999;";
-        document.body.appendChild(loadingIndicator);
-        
         try {
           await initializeMap();
         } catch (error) {
           console.error("Failed to initialize map:", error);
-        } finally {
-          // Remove loading indicator
-          if (loadingIndicator.parentNode) {
-            loadingIndicator.parentNode.removeChild(loadingIndicator);
-          }
         }
       }
     });
