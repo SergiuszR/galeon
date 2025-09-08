@@ -3,7 +3,7 @@
 
 const MAPBOX_CONFIG = {
   accessToken:
-    "pk.eyJ1IjoiZ2FsZW9ueWFjaHRpbmciLCJhIjoiY21kenVxc2lvMGRnNTJtc2lmYXE5dGIycSJ9.VqerV12FQZLO9Xbzs5WNUg",
+    "pk.eyJ1IjoiZ2FsZW9ueWFjaHRpbmciLCJhIjoiY21lZWdwcGlqMG5pZTJqc2dwbzA4NTRsMyJ9.PQ3KfBb43hPowRuKKg_Hkg",
   style: "mapbox://styles/mapbox/streets-v12",
   defaultCenter: [10.4515, 51.1657],
   defaultZoom: 2,
