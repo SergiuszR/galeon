@@ -1272,11 +1272,12 @@ $(function () {
 // ============================================================================
 
 /**
- * Fix invisible active tabs in CMS
- */
 function fixInvisibleActiveTab() {
   const tabButtons = Array.from(document.querySelectorAll('.tabs_button.is-cms'));
-  const tabPanels = Array.from(document.querySelectorAll('.tabs_tab'));
+  
+  // ZMIANA: Pobieramy ID paneli, które faktycznie należą do CMS, żeby nie psuć jachtów
+  const cmsPanelIds = tabButtons.map(btn => btn.getAttribute('aria-controls'));
+  const tabPanels = Array.from(document.querySelectorAll('.tabs_tab')).filter(panel => cmsPanelIds.includes(panel.id));
 
   if (!tabButtons.some(btn => !btn.classList.contains('w-condition-invisible'))) {
     return;
@@ -1303,6 +1304,7 @@ function fixInvisibleActiveTab() {
       const panelId = nextVisibleButton.getAttribute('aria-controls');
       const nextPanel = tabPanels.find(panel => panel.id === panelId && !panel.classList.contains('w-condition-invisible'));
 
+      // Teraz czyścimy TYLKO panele należące do zakładek CMS
       tabPanels.forEach(panel => {
         panel.classList.remove('active-tab');
         panel.setAttribute('aria-hidden', 'true');
