@@ -1,57 +1,92 @@
-// Vimeo Video Loader
-// Fetches MP4 sources from Vimeo API and injects them into native <video> elements
+// Vimeo Background Video Loader (iframe)
+// Builds Vimeo's official "background" player embed URL for iframes
+// carrying a data-video-id attribute. No Vimeo API calls are needed -
+// Vimeo's own player handles adaptive bitrate, looping, and muted
+// autoplay correctly on its own, which a hand-rolled native <video> +
+// raw HLS/MP4 implementation had to reimplement piece by piece (see
+// functions/backup/vimeo-video-loader.native-hls-video.js for that
+// approach and why it was retired).
+//
+// Webflow usage: on the <iframe> element, set data-video-id="123456789".
+// If the video's privacy requires the embed hash (Vimeo Settings ->
+// Privacy -> "Where can this be embedded?" set to a specific domain/
+// unlisted), also set data-video-hash to the value after ?h= in Vimeo's
+// share/embed link. Optionally set data-video-aspect="width/height"
+// (e.g. "4/3") if the source isn't the default 16:9.
+//
+// iframes don't support `object-fit: cover` the way <video> did, so the
+// wrapping element needs `position: relative; overflow: hidden;` and this
+// script resizes/centers the iframe itself to always overflow that
+// wrapper - a manual "cover" crop, kept in sync on resize.
 
-document.addEventListener('DOMContentLoaded', function() {
-  // CONFIGURATION
-  const VIMEO_ACCESS_TOKEN = '4f1085a11f33827307d4171e83b25755';
- 
-  // Find all video elements with data-video-id attribute
-  document.querySelectorAll('video[data-video-id]').forEach(function(video) {
-    var videoId = video.getAttribute('data-video-id');
-    if (!videoId || videoId.trim() === '') return;
+document.addEventListener("DOMContentLoaded", function () {
+  document
+    .querySelectorAll("iframe[data-video-id]")
+    .forEach(function (iframe) {
+      var videoId = iframe.getAttribute("data-video-id");
+      if (!videoId || videoId.trim() === "") return;
 
-    // Fetch video data from Vimeo API
-    fetch('https://api.vimeo.com/videos/' + videoId, {
-      headers: {
-        'Authorization': 'Bearer ' + VIMEO_ACCESS_TOKEN
-      }
-    })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
-      var files = Array.isArray(data.files) ? data.files : [];
-      var mp4File = files.filter(function(f) { return f.type === 'video/mp4'; })
-                         .sort(function(a, b) { return b.height - a.height; })[0];
+      var hash = iframe.getAttribute("data-video-hash");
 
-      if (mp4File) {
-        // Check if video element still exists in DOM
-        if (!video || !video.parentNode) {
-          console.warn('Video element no longer exists in DOM for video ID:', videoId);
-          return;
-        }
+      var params = new URLSearchParams({
+        background: "1",
+        autoplay: "1",
+        loop: "1",
+        muted: "1",
+        autopause: "0",
+        byline: "0",
+        title: "0",
+        portrait: "0",
+      });
+      if (hash) params.set("h", hash);
 
-        // Remove old sources
-        while (video.firstChild) video.removeChild(video.firstChild);
+      iframe.src =
+        "https://player.vimeo.com/video/" + videoId + "?" + params.toString();
 
-        // Create and append new source
-        var source = document.createElement('source');
-        source.src = mp4File.link;
-        source.type = 'video/mp4';
-        video.appendChild(source);
-
-        // Set video attributes
-        video.muted = true;
-        video.autoplay = true;
-        video.loop = true;
-        video.playsInline = true;
-
-        // Load the video with new source
-        video.load();
-      } else {
-        console.error('No MP4 file found in Vimeo response for video ID:', videoId);
-      }
-    })
-    .catch(function(err) {
-      console.error('Vimeo API error for video ID:', videoId, err);
+      setupCoverFit(iframe);
     });
-  });
 });
+
+function setupCoverFit(iframe) {
+  var wrap = iframe.parentElement;
+  if (!wrap) return;
+
+  var aspectAttr = iframe.getAttribute("data-video-aspect");
+  var aspect = 16 / 9;
+  if (aspectAttr && aspectAttr.indexOf("/") !== -1) {
+    var parts = aspectAttr.split("/");
+    var w = parseFloat(parts[0]);
+    var h = parseFloat(parts[1]);
+    if (w > 0 && h > 0) aspect = w / h;
+  }
+
+  iframe.style.position = "absolute";
+  iframe.style.top = "50%";
+  iframe.style.left = "50%";
+  iframe.style.transform = "translate(-50%, -50%)";
+  iframe.style.border = "0";
+  iframe.style.pointerEvents = "none";
+
+  var wrapStyle = getComputedStyle(wrap);
+  if (wrapStyle.position === "static") wrap.style.position = "relative";
+  wrap.style.overflow = "hidden";
+
+  function resize() {
+    var rect = wrap.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    if (rect.width / rect.height > aspect) {
+      iframe.style.width = rect.width + "px";
+      iframe.style.height = rect.width / aspect + "px";
+    } else {
+      iframe.style.height = rect.height + "px";
+      iframe.style.width = rect.height * aspect + "px";
+    }
+  }
+
+  resize();
+  if (window.ResizeObserver) {
+    new ResizeObserver(resize).observe(wrap);
+  } else {
+    window.addEventListener("resize", resize);
+  }
+}
